@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Vida PJ - Estratégico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .game-board {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 900px;
+            margin: auto;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .log {
+            background: #f9f9f9;
+            padding: 15px;
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 20px;
+            text-align: left;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 8px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        select,
+        input {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .opcoes {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            z-index: 999;
+        }
+
+        .popup h2 {
+            margin-bottom: 10px;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-board">
+        <h1>🎲 Jogo da Vida PJ - Estratégico</h1>
+        <div id="setup">
+            <p>Quantos jogadores?</p>
+            <input type="number" id="numJogadores" min="2" max="6" value="2">
+            <button onclick="criarJogadores()">Confirmar</button>
+            <div id="jogadores"></div>
+        </div>
+
+        <div id="jogo" style="display:none">
+            <h2 id="vezJogador"></h2>
+            <div class="opcoes" id="opcoes"></div>
+            <div class="log" id="log"></div>
+            <button onclick="mostrarRanking()">Exibir Ranking</button>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="popup" id="popup">
+        <h2>💥 Fim de jogo</h2>
+        <p>Todas as empresas faliram.</p>
+        <button onclick="reiniciarJogo()">Reiniciar</button>
+    </div>
+
+    <script>
+        let jogadores = [];
+        let jogadorAtual = 0;
+        let rodada = 1;
+
+        const eventos = {
+            lenzing: [
+                {
+                    pergunta: "Sua empresa quer lançar uma nova linha sustentável. Qual decisão tomar?",
+                    opcoes: [
+                        { texto: "Investir pesado na inovação", resultado: [5, -15, 20] },
+                        { texto: "Focar em marketing verde sem mudar produção", resultado: [0, -5, 5] }
+                    ]
+                },
+                {
+                    pergunta: "A cadeia de suprimentos está ineficiente. O que fazer?",
+                    opcoes: [
+                        { texto: "Implementar ERP completo", resultado: [4, -10, 10] },
+                        { texto: "Manter Excel e treinar equipe", resultado: [1, -2, 2] }
+                    ]
+                },
+                {
+                    pergunta: "Clientes estão exigindo maior transparência nos processos. Como agir?",
+                    opcoes: [
+                        { texto: "Publicar relatórios detalhados", resultado: [3, -5, 8] },
+                        { texto: "Criar um portal de transparência", resultado: [4, -8, 10] }
+                    ]
+                },
+                {
+                    pergunta: "A produção está gerando mais resíduos do que o esperado. Qual decisão tomar?",
+                    opcoes: [
+                        { texto: "Investir em reciclagem interna", resultado: [5, -10, 12] },
+                        { texto: "Contratar uma empresa de gestão de resíduos", resultado: [2, -4, 6] }
+                    ]
+                },
+                {
+                    pergunta: "A empresa recebeu críticas por práticas ambientais. O que fazer?",
+                    opcoes: [
+                        { texto: "Lançar uma campanha de conscientização", resultado: [3, -6, 7] },
+                        { texto: "Revisar práticas e implementar melhorias", resultado: [4, -8, 9] }
+                    ]
+                },
+                {
+                    pergunta: "Há uma oportunidade de expandir para novos mercados. Como proceder?",
+                    opcoes: [
+                        { texto: "Investir em marketing internacional", resultado: [5, -12, 15] },
+                        { texto: "Focar no mercado atual e consolidar", resultado: [2, -3, 5] }
+                    ]
+                }
+            ],
+            vinci: [
+                {
+                    pergunta: "Os funcionários gastam tempo com processos manuais. Sua decisão:",
+                    opcoes: [
+                        { texto: "Desenvolver app de controle de horas", resultado: [6, -12, 15] },
+                        { texto: "Delegar para líderes de equipe manualmente", resultado: [1, -3, 2] }
+                    ]
+                },
+                {
+                    pergunta: "Há pressão para unificar os sistemas da empresa:",
+                    opcoes: [
+                        { texto: "Migrar tudo para SAP S/4HANA", resultado: [5, -10, 10] },
+                        { texto: "Deixar departamentos separados", resultado: [0, 0, -5] }
+                    ]
+                },
+                {
+                    pergunta: "Um cliente importante exige maior eficiência nos projetos. Como agir?",
+                    opcoes: [
+                        { texto: "Automatizar processos críticos", resultado: [4, -8, 10] },
+                        { texto: "Contratar mais profissionais experientes", resultado: [3, -6, 8] }
+                    ]
+                },
+                {
+                    pergunta: "A empresa enfrenta dificuldades para cumprir prazos. Qual decisão tomar?",
+                    opcoes: [
+                        { texto: "Revisar cronogramas e priorizar projetos", resultado: [3, -5, 7] },
+                        { texto: "Aumentar a equipe temporariamente", resultado: [2, -4, 5] }
+                    ]
+                },
+                {
+                    pergunta: "Há uma oportunidade de adotar novas tecnologias. O que fazer?",
+                    opcoes: [
+                        { texto: "Investir em pesquisa e desenvolvimento", resultado: [5, -12, 15] },
+                        { texto: "Esperar para observar o mercado", resultado: [1, 0, 3] }
+                    ]
+                },
+                {
+                    pergunta: "A concorrência está oferecendo preços mais baixos. Como reagir?",
+                    opcoes: [
+                        { texto: "Reduzir custos e ajustar preços", resultado: [4, -10, 12] },
+                        { texto: "Reforçar o valor agregado dos serviços", resultado: [3, -5, 8] }
+                    ]
+                }
+            ],
+            natura: [
+                {
+                    pergunta: "A Natura deseja reduzir o uso de plástico em suas embalagens:",
+                    opcoes: [
+                        { texto: "Investir em refil biodegradável", resultado: [6, -8, 15] },
+                        { texto: "Reduzir o tamanho da embalagem atual", resultado: [2, -2, 5] }
+                    ]
+                },
+                {
+                    pergunta: "Nova linha de cosméticos está em desenvolvimento:",
+                    opcoes: [
+                        { texto: "Testar com influenciadores antes de lançar", resultado: [4, -3, 10] },
+                        { texto: "Lançar direto com campanha tradicional", resultado: [2, -1, 5] }
+                    ]
+                },
+                {
+                    pergunta: "Há aumento no custo com fornecedores da Amazônia:",
+                    opcoes: [
+                        { texto: "Criar parceria direta com comunidades locais", resultado: [5, -6, 10] },
+                        { texto: "Buscar fornecedores mais baratos", resultado: [1, 0, -3] }
+                    ]
+                },
+                {
+                    pergunta: "Funcionários pedem mais flexibilidade no trabalho:",
+                    opcoes: [
+                        { texto: "Implementar modelo híbrido", resultado: [3, -2, 7] },
+                        { texto: "Manter presencial com benefícios extras", resultado: [1, -1, 3] }
+                    ]
+                },
+                {
+                    pergunta: "Meta de carbono neutro está distante:",
+                    opcoes: [
+                        { texto: "Comprar créditos de carbono", resultado: [1, -4, 4] },
+                        { texto: "Reduzir operações de alto impacto", resultado: [4, -6, 8] }
+                    ]
+                },
+                {
+                    pergunta: "Há críticas ao uso de ingredientes importados:",
+                    opcoes: [
+                        { texto: "Substituir por insumos locais", resultado: [3, -3, 6] },
+                        { texto: "Reforçar comunicação sobre origem ética", resultado: [2, -1, 4] }
+                    ]
+                }
+            ],
+            tesla: [
+                {
+                    pergunta: "Demanda por veículos elétricos está aumentando:",
+                    opcoes: [
+                        { texto: "Expandir produção na China", resultado: [5, -10, 15] },
+                        { texto: "Focar nos modelos atuais", resultado: [2, -2, 5] }
+                    ]
+                },
+                {
+                    pergunta: "Problemas de qualidade estão em alta nas redes sociais:",
+                    opcoes: [
+                        { texto: "Investir em controle de qualidade", resultado: [4, -6, 10] },
+                        { texto: "Responder com humor no X (Twitter)", resultado: [1, 0, -2] }
+                    ]
+                },
+                {
+                    pergunta: "Nova bateria promissora foi descoberta:",
+                    opcoes: [
+                        { texto: "Prototipar imediatamente", resultado: [6, -12, 15] },
+                        { texto: "Esperar resultados de outras empresas", resultado: [1, 0, 2] }
+                    ]
+                },
+                {
+                    pergunta: "Tesla Energy tem baixo crescimento:",
+                    opcoes: [
+                        { texto: "Oferecer painéis com financiamento facilitado", resultado: [3, -5, 8] },
+                        { texto: "Focar apenas nos carros", resultado: [0, 0, -4] }
+                    ]
+                },
+                {
+                    pergunta: "Funcionários de fábricas pedem melhores condições:",
+                    opcoes: [
+                        { texto: "Automatizar processos repetitivos", resultado: [5, -10, 12] },
+                        { texto: "Aumentar salários e manter modelo atual", resultado: [2, -6, 6] }
+                    ]
+                },
+                {
+                    pergunta: "Concorrência com montadoras tradicionais aumenta:",
+                    opcoes: [
+                        { texto: "Oferecer modelo popular abaixo de 25 mil USD", resultado: [5, -8, 12] },
+                        { texto: "Reforçar posicionamento premium", resultado: [2, -2, 5] }
+                    ]
+                }
+            ],
+            amazon: [
+                {
+                    pergunta: "Centros de distribuição estão sobrecarregados:",
+                    opcoes: [
+                        { texto: "Investir em robótica", resultado: [6, -15, 20] },
+                        { texto: "Aumentar turnos humanos", resultado: [2, -6, 5] }
+                    ]
+                },
+                {
+                    pergunta: "Clientes reclamam da experiência com Alexa:",
+                    opcoes: [
+                        { texto: "Atualizar IA com novos modelos", resultado: [5, -10, 10] },
+                        { texto: "Oferecer tutoriais online", resultado: [1, 0, 2] }
+                    ]
+                },
+                {
+                    pergunta: "Concorrência cresce no setor de streaming:",
+                    opcoes: [
+                        { texto: "Produzir séries exclusivas", resultado: [4, -8, 9] },
+                        { texto: "Firmar parcerias com estúdios", resultado: [3, -4, 6] }
+                    ]
+                },
+                {
+                    pergunta: "Venda de livros físicos caiu:",
+                    opcoes: [
+                        { texto: "Investir em Kindle e digital", resultado: [4, -5, 7] },
+                        { texto: "Promover promoções de best-sellers", resultado: [2, -2, 3] }
+                    ]
+                },
+                {
+                    pergunta: "Funcionários do armazém exigem sindicato:",
+                    opcoes: [
+                        { texto: "Negociar com representantes", resultado: [2, -3, 4] },
+                        { texto: "Reforçar benefícios e tentar evitar", resultado: [1, -1, 2] }
+                    ]
+                },
+                {
+                    pergunta: "Amazon Web Services sofre queda em alguns mercados:",
+                    opcoes: [
+                        { texto: "Oferecer pacotes customizados", resultado: [4, -6, 8] },
+                        { texto: "Reduzir preços dos planos atuais", resultado: [3, -4, 6] }
+                    ]
+                }
+            ],
+            embraer: [
+                {
+                    pergunta: "Nova aeronave regional está em testes:",
+                    opcoes: [
+                        { texto: "Acelerar o lançamento", resultado: [6, -12, 15] },
+                        { texto: "Esperar homologação internacional", resultado: [2, -3, 4] }
+                    ]
+                },
+                {
+                    pergunta: "Concorrência da Airbus aumenta em mercados emergentes:",
+                    opcoes: [
+                        { texto: "Fechar acordo com companhia aérea local", resultado: [5, -7, 10] },
+                        { texto: "Investir em diferenciação tecnológica", resultado: [4, -9, 9] }
+                    ]
+                },
+                {
+                    pergunta: "Demanda por sustentabilidade cresce na aviação:",
+                    opcoes: [
+                        { texto: "Desenvolver aeronave híbrida", resultado: [5, -10, 12] },
+                        { texto: "Investir em biocombustíveis", resultado: [3, -5, 8] }
+                    ]
+                },
+                {
+                    pergunta: "Engenheiros experientes estão se aposentando:",
+                    opcoes: [
+                        { texto: "Criar programa de mentorias", resultado: [2, -2, 5] },
+                        { texto: "Contratar novos talentos estrangeiros", resultado: [3, -4, 6] }
+                    ]
+                },
+                {
+                    pergunta: "Exportações caíram 15% no último trimestre:",
+                    opcoes: [
+                        { texto: "Oferecer leasing mais competitivo", resultado: [4, -6, 7] },
+                        { texto: "Investir em marketing internacional", resultado: [3, -5, 6] }
+                    ]
+                },
+                {
+                    pergunta: "Nova tecnologia de radar disponível para defesa:",
+                    opcoes: [
+                        { texto: "Integrar nos modelos atuais", resultado: [5, -7, 10] },
+                        { texto: "Esperar o uso por parceiros estrangeiros", resultado: [2, 0, 3] }
+                    ]
+                }
+            ]
+        };
+
+        const atributosEmpresas = {
+            lenzing: { eficiencia: 10, caixa: 30, reputacao: 10 },
+            vinci: { eficiencia: 12, caixa: 70, reputacao: 12 },
+            natura: { eficiencia: 11, caixa: 40, reputacao: 15 },
+            tesla: { eficiencia: 14, caixa: 100, reputacao: 18 },
+            amazon: { eficiencia: 13, caixa: 90, reputacao: 14 },
+            embraer: { eficiencia: 15, caixa: 50, reputacao: 16 }
+        };
+
+        function criarJogadores() {
+            const num = parseInt(document.getElementById("numJogadores").value);
+            const container = document.getElementById("jogadores");
+            container.innerHTML = "";
+            jogadores = [];
+            for (let i = 0; i < num; i++) {
+                container.innerHTML += `
+            <p>Jogador ${i + 1} - Escolha a empresa:
+                <select id="empresa${i}">
+                    <option value="lenzing">Lenzing Group</option>
+                    <option value="vinci">Vinci Energies</option>
+                    <option value="natura">Natura & Co</option>
+                    <option value="tesla">Tesla Inc.</option>
+                    <option value="amazon">Amazon Inc.</option>
+                    <option value="embraer">Embraer S.A.</option>
+                </select>
+            </p>
+        `;
+            }
+            container.innerHTML += `
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 10px;">
+                    <div style="flex: 1; min-width: 200px; margin: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
+                        <h3>Lenzing Group</h3>
+                        <p>🌱 Sustentabilidade e inovação em fibras têxteis.</p>
+                        <p>Eficiência: 10</p>
+                        <p>Caixa: 30</p>
+                        <p>Reputação: 10</p>
+                        <p><strong>Benefícios:</strong> Sustentabilidade atrai investidores.</p>
+                        <p><strong>Malefícios:</strong> Caixa baixo limita investimentos.</p>
+                    </div>
+                    <div style="flex: 1; min-width: 200px; margin: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
+                        <h3>Vinci Energies</h3>
+                        <p>⚡ Soluções em energia e tecnologia.</p>
+                        <p>Eficiência: 12</p>
+                        <p>Caixa: 70</p>
+                        <p>Reputação: 12</p>
+                        <p><strong>Benefícios:</strong> Caixa alto permite expansão rápida.</p>
+                        <p><strong>Malefícios:</strong> Alta eficiência exige manutenção constante.</p>
+                    </div>
+                    <div style="flex: 1; min-width: 200px; margin: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
+                        <h3>Natura & Co</h3>
+                        <p>🌸 Beleza e sustentabilidade.</p>
+                        <p>Eficiência: 11</p>
+                        <p>Caixa: 40</p>
+                        <p>Reputação: 15</p>
+                        <p><strong>Benefícios:</strong> Alta reputação melhora vendas.</p>
+                        <p><strong>Malefícios:</strong> Caixa médio limita grandes campanhas.</p>
+                    </div>
+                    <div style="flex: 1; min-width: 200px; margin: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
+                        <h3>Tesla Inc.</h3>
+                        <p>🚗 Inovação em veículos elétricos.</p>
+                        <p>Eficiência: 14</p>
+                        <p>Caixa: 100</p>
+                        <p>Reputação: 18</p>
+                        <p><strong>Benefícios:</strong> Caixa alto permite inovação constante.</p>
+                        <p><strong>Malefícios:</strong> Alta reputação exige manutenção de qualidade.</p>
+                    </div>
+                    <div style="flex: 1; min-width: 200px; margin: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
+                        <h3>Amazon Inc.</h3>
+                        <p>📦 Comércio eletrônico e tecnologia.</p>
+                        <p>Eficiência: 13</p>
+                        <p>Caixa: 90</p>
+                        <p>Reputação: 14</p>
+                        <p><strong>Benefícios:</strong> Caixa alto permite dominar mercados.</p>
+                        <p><strong>Malefícios:</strong> Alta eficiência pode gerar pressão nos funcionários.</p>
+                    </div>
+                    <div style="flex: 1; min-width: 200px; margin: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
+                        <h3>Embraer S.A.</h3>
+                        <p>✈️ Aviação e tecnologia aeroespacial.</p>
+                        <p>Eficiência: 15</p>
+                        <p>Caixa: 50</p>
+                        <p>Reputação: 16</p>
+                        <p><strong>Benefícios:</strong> Alta eficiência garante competitividade.</p>
+                        <p><strong>Malefícios:</strong> Caixa médio pode limitar inovação.</p>
+                    </div>
+                </div>
+    `;
+            container.innerHTML += '<button onclick="iniciarJogo()">Iniciar Jogo</button>';
+        }
+
+        // Função iniciarJogo() agora global
+        function iniciarJogo() {
+            const num = parseInt(document.getElementById("numJogadores").value);
+            jogadores = [];
+
+            for (let i = 0; i < num; i++) {
+                const empresa = document.getElementById(`empresa${i}`).value;
+                const atributos = atributosEmpresas[empresa];
+                jogadores.push({ nome: `Jogador ${i + 1}`, empresa, ...atributos });
+            }
+
+            document.getElementById("setup").style.display = "none";
+            document.getElementById("jogo").style.display = "block";
+
+            atualizarTela();
+            apresentarDecisao();
+        }
+
+        // Função atualizarTela() agora global
+        function atualizarTela() {
+            if (jogadores.length === 0) return;
+
+            const j = jogadores[jogadorAtual];
+            const nomeEmpresa = document.querySelector(`#empresa0 option[value=${j.empresa}]`).innerText;
+
+            document.getElementById("vezJogador").innerHTML = `
+            <div style="margin-bottom: 20px;">
+            <p><strong>Rodada:</strong> <span id="rodada">${rodada}</span></p>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+            <div style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9; text-align: left; height: 240px;">
+                <p> (${nomeEmpresa})</p>
+                <p><strong>Eficiência:</strong> <span style="color: #4CAF50;">${j.eficiencia}</span></p>
+                <p><strong>Caixa:</strong> <span style="color: #2196F3;">$${j.caixa}</span></p>
+                <p><strong>Reputação:</strong> <span style="color: #FF9800;">${j.reputacao}</span></p>
+            </div>
+            <div id="opcoes" style="flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 8px; background: #fff; height: 240px;">
+                <!-- As opções de decisão serão inseridas aqui -->
+            </div>
+            </div>
+            `;
+        }
+
+        function apresentarDecisao() {
+            const j = jogadores[jogadorAtual];
+            const evento = eventos[j.empresa][Math.floor(Math.random() * eventos[j.empresa].length)];
+            const container = document.getElementById("opcoes");
+
+            container.innerHTML = `
+            <div style="margin-bottom: 15px;">
+            <p><strong>${evento.pergunta}</strong></p>
+            </div>
+            `;
+
+            evento.opcoes.forEach(op => {
+            const btn = document.createElement("button");
+            btn.textContent = op.texto;
+            btn.style.margin = "5px";
+            btn.onclick = () => aplicarResultado(op.resultado, op.texto);
+            container.appendChild(btn);
+            });
+        }
+
+        // Função aplicarResultado() agora global
+        function aplicarResultado(resultado, decisaoTexto) {
+            const j = jogadores[jogadorAtual];
+            const [ef, caixa, reput] = resultado;
+
+            j.eficiencia += ef;
+            j.caixa += caixa;
+            j.reputacao += reput;
+
+            const status = `Eficiência ${ef >= 0 ? '+' + ef : ef}, Caixa ${caixa >= 0 ? '+' + caixa : caixa}, Reputação ${reput >= 0 ? '+' + reput : reput}`;
+            document.getElementById("log").innerHTML += `<p><strong>${j.nome}</strong> escolheu: ${decisaoTexto}<br><em>${status}</em></p>`;
+
+            if (j.caixa <= 0 || j.eficiencia <= 0 || j.reputacao <= 0) {
+            document.getElementById("log").innerHTML += `<p><strong>${j.nome}</strong> faliu! 💥</p>`;
+            jogadores.splice(jogadorAtual, 1);
+
+            if (jogadores.length === 0) {
+                document.getElementById("overlay").style.display = "block";
+                document.getElementById("popup").style.display = "block";
+                return;
+            }
+
+            if (jogadorAtual >= jogadores.length) {
+                jogadorAtual = 0;
+                rodada++;
+            }
+            } else {
+            jogadorAtual++;
+
+            if (jogadorAtual >= jogadores.length) {
+                jogadorAtual = 0;
+                rodada++;
+            }
+            }
+
+            atualizarTela();
+            apresentarDecisao();
+        }
+
+        function mostrarRanking() {
+            const ranking = [...jogadores].sort((a, b) => (b.eficiencia + b.caixa + b.reputacao) - (a.eficiencia + a.caixa + a.reputacao));
+            let rankingHTML = `
+            <h2>🏆 Ranking das Empresas</h2>
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                <tr>
+                    <th style="border: 1px solid #ccc; padding: 8px;">Posição</th>
+                    <th style="border: 1px solid #ccc; padding: 8px;">Jogador</th>
+                    <th style="border: 1px solid #ccc; padding: 8px;">Empresa</th>
+                    <th style="border: 1px solid #ccc; padding: 8px;">Eficiência</th>
+                    <th style="border: 1px solid #ccc; padding: 8px;">Caixa</th>
+                    <th style="border: 1px solid #ccc; padding: 8px;">Reputação</th>
+                    <th style="border: 1px solid #ccc; padding: 8px;">Total</th>
+                </tr>
+                </thead>
+                <tbody>
+            `;
+            ranking.forEach((j, index) => {
+            const total = j.eficiencia + j.caixa + j.reputacao;
+            rankingHTML += `
+                <tr>
+                <td style="border: 1px solid #ccc; padding: 8px;">${index + 1}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${j.nome}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${j.empresa}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${j.eficiencia}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${j.caixa}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${j.reputacao}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${total}</td>
+                </tr>
+            `;
+            });
+            rankingHTML += `
+                </tbody>
+            </table>
+            <button onclick="fecharRanking()" style="margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background-color: #4CAF50; color: white;">Fechar</button>
+            `;
+
+            const popupRanking = document.createElement('div');
+            popupRanking.className = 'popup';
+            popupRanking.style.display = 'block';
+            popupRanking.innerHTML = rankingHTML;
+            document.body.appendChild(popupRanking);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            overlay.style.display = 'block';
+            overlay.id = 'rankingOverlay';
+            document.body.appendChild(overlay);
+        }
+
+        function fecharRanking() {
+            document.querySelector('.popup').remove();
+            document.getElementById('rankingOverlay').remove();
+        }
+
+        // Função reiniciarJogo() agora global
+        function reiniciarJogo() {
+            location.reload();
+        }
+
+    </script>
+</body>
+
+</html>
